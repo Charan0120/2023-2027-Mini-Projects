@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Surveillance — User Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-root:    #060a0f;
+    --bg-panel:   #0b1119;
+    --bg-card:    #0f1822;
+    --bg-card2:   #121f2e;
+    --border:     #1a2d42;
+    --border-glow:#1e3a52;
+    --green:  #00ff88; --green2: #00cc6a; --green-dim: rgba(0,255,136,.08);
+    --orange: #ff8c00; --orange2:#e07800; --orange-dim: rgba(255,140,0,.09);
+    --yellow: #ffe033; --yellow2:#d4bb22; --yellow-dim: rgba(255,224,51,.08);
+    --red:    #ff2244; --red2:   #cc1133; --red-dim: rgba(255,34,68,.09);
+    --cyan:   #00d4ff; --cyan-dim: rgba(0,212,255,.07);
+    --text-primary: #d8eaf8;
+    --text-secondary: #5a7a94;
+    --text-dim: #3a5a72;
+    --font-head: 'Orbitron', monospace;
+    --font-ui:   'Rajdhani', sans-serif;
+    --font-mono: 'Share Tech Mono', monospace;
+    --header-h:  56px;
+  }
+
+  /* ── GLOBAL: lock the viewport, no page scroll ─────────────────────────── */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-root);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+  }
+
+  /* scanline overlay */
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.15) 2px, rgba(0,0,0,.15) 4px);
+  }
+
+  /* ── APP SHELL: header + main, exactly 100vh ───────────────────────────── */
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── HEADER (fixed height) ─────────────────────────────────────────────── */
+  header {
+    flex: 0 0 var(--header-h);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    position: relative; overflow: hidden;
+    z-index: 10;
+  }
+  header::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), var(--green), transparent);
+    animation: headerGlow 4s ease-in-out infinite;
+  }
+  @keyframes headerGlow { 0%,100%{opacity:.3} 50%{opacity:1} }
+
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-logo {
+    width: 32px; height: 32px; border: 1.5px solid var(--cyan);
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 12px rgba(0,212,255,.3); flex-shrink: 0;
+  }
+  .header-logo svg { width: 18px; height: 18px; }
+  .header-title { font-family: var(--font-head); font-size: 13px; font-weight: 700; letter-spacing: 1.5px; }
+  .header-title span { color: var(--cyan); }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+
+  .hdr-badge { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+  .hdr-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 1.6s ease-in-out infinite; }
+  .hdr-badge .dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  #clock { font-family: var(--font-mono); font-size: 13px; color: var(--cyan); letter-spacing: 1px; }
+
+  .user-chip { display: flex; align-items: center; gap: 7px; background: rgba(0,255,136,.07); border: 1px solid rgba(0,255,136,.2); border-radius: 6px; padding: 4px 10px; font-family: var(--font-mono); font-size: 11px; color: var(--green); }
+  .user-chip svg { width: 13px; height: 13px; }
+
+  .hdr-btn { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .8px; text-transform: uppercase; color: var(--text-secondary); cursor: pointer; transition: all .2s; text-decoration: none; }
+  .hdr-btn:hover { background: rgba(255,34,68,.07); border-color: rgba(255,34,68,.3); color: var(--red); }
+  .hdr-btn svg { width: 13px; height: 13px; }
+
+  /* ── MAIN: 2-column grid, fills remaining height, NO overflow ──────────── */
+  main {
+    flex: 1;
+    min-height: 0;          /* crucial — lets flex children shrink */
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    overflow: hidden;
+  }
+
+  /* ── LEFT: VIDEO COLUMN ────────────────────────────────────────────────── */
+  .video-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #000;
+    border-right: 1px solid var(--border);
+  }
+
+  .video-topbar {
+    flex: 0 0 auto;
+    background: var(--bg-panel); border-bottom: 1px solid var(--border);
+    padding: 8px 16px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .cam-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); letter-spacing: .8px; text-transform: uppercase; }
+  .cam-id { font-family: var(--font-mono); font-size: 11px; color: var(--cyan); background: var(--cyan-dim); border: 1px solid rgba(0,212,255,.2); border-radius: 3px; padding: 1px 6px; }
+  .fps-display { font-family: var(--font-mono); font-size: 11px; color: var(--green); }
+  .rec-badge { display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px; color: var(--red); }
+  .rec-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--red); box-shadow: 0 0 6px var(--red); animation: pulse .8s ease-in-out infinite; }
+
+  /* video wrapper fills all remaining height in left column */
+  .video-wrapper {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+    background: #000;
+  }
+  #videoFeed {
+    width: 100%; height: 100%;
+    object-fit: contain;   /* show full frame without cropping */
+    display: block;
+  }
+  /* canvas overlays the feed for bounding boxes */
+  #detectionCanvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  /* corner brackets */
+  .video-wrapper::before, .video-wrapper::after,
+  .corner-br, .corner-bl {
+    content: ''; position: absolute; width: 22px; height: 22px;
+    z-index: 10; pointer-events: none;
+  }
+  .video-wrapper::before { top: 12px; left: 12px;  border-top: 2px solid var(--green); border-left:  2px solid var(--green); }
+  .video-wrapper::after  { top: 12px; right: 12px; border-top: 2px solid var(--green); border-right: 2px solid var(--green); }
+  .corner-br { bottom: 12px; right: 12px; border-bottom: 2px solid var(--green); border-right: 2px solid var(--green); }
+  .corner-bl { bottom: 12px; left:  12px; border-bottom: 2px solid var(--green); border-left:  2px solid var(--green); }
+
+  .no-signal {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; background: #000; z-index: 5;
+  }
+  .no-signal p { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); letter-spacing: 2px; }
+
+  .video-footer {
+    flex: 0 0 auto;
+    background: var(--bg-panel); border-top: 1px solid var(--border);
+    padding: 6px 16px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .vf-stat { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
+  .vf-stat span { color: var(--text-secondary); }
+
+  /* ── RIGHT PANEL ───────────────────────────────────────────────────────── */
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;   /* panel itself never scrolls */
+    background: var(--bg-panel);
+  }
+
+  /* scrollable interior wrapper — only this scrolls, not the whole page */
+  .panel-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .panel-scroll::-webkit-scrollbar { width: 3px; }
+  .panel-scroll::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 2px; }
+
+  .user-notice {
+    background: rgba(0,255,136,.05); border: 1px solid rgba(0,255,136,.15);
+    border-radius: 6px; padding: 8px 12px; margin: 10px 16px;
+    font-family: var(--font-mono); font-size: 10px; color: var(--green);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .user-notice svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+  .panel-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .section-label {
+    font-family: var(--font-head); font-size: 9px; letter-spacing: 2px;
+    color: var(--text-dim); text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* node info grid */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .info-cell { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+  .info-cell-label { font-size: 10px; color: var(--text-dim); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 3px; font-family: var(--font-mono); }
+  .info-cell-value { font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .info-cell-value.cyan  { color: var(--cyan); }
+  .info-cell-value.green { color: var(--green); }
+
+  /* threat status card */
+  .status-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; position: relative; overflow: hidden; transition: border-color .3s, box-shadow .3s; }
+  .status-card::before { content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .status-card.safe   { border-color: var(--green2); box-shadow: 0 0 18px rgba(0,204,106,.12); }
+  .status-card.safe::before   { background: var(--green-dim);  opacity: 1; }
+  .status-card.unauth { border-color: var(--orange2); box-shadow: 0 0 18px rgba(224,120,0,.15); }
+  .status-card.unauth::before { background: var(--orange-dim); opacity: 1; }
+  .status-card.weapon { border-color: var(--yellow2); box-shadow: 0 0 18px rgba(212,187,34,.12); }
+  .status-card.weapon::before { background: var(--yellow-dim); opacity: 1; }
+  .status-card.threat { border-color: var(--red2); box-shadow: 0 0 20px rgba(204,17,51,.18); }
+  .status-card.threat::before { background: var(--red-dim); opacity: 1; }
+
+  .status-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .status-icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .status-icon svg { width: 20px; height: 20px; }
+  .status-icon.safe   { background: rgba(0,255,136,.1); }
+  .status-icon.unauth { background: rgba(255,140,0,.1); }
+  .status-icon.weapon { background: rgba(255,224,51,.1); }
+  .status-icon.threat { background: rgba(255,34,68,.1); }
+
+  .status-badge { font-family: var(--font-head); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 3px; display: inline-block; margin-bottom: 3px; }
+  .status-badge.safe   { background: rgba(0,255,136,.15); color: var(--green);  border: 1px solid rgba(0,255,136,.3); }
+  .status-badge.unauth { background: rgba(255,140,0,.15); color: var(--orange); border: 1px solid rgba(255,140,0,.3); }
+  .status-badge.weapon { background: rgba(255,224,51,.15); color: var(--yellow);border: 1px solid rgba(255,224,51,.3); }
+  .status-badge.threat { background: rgba(255,34,68,.15);  color: var(--red);   border: 1px solid rgba(255,34,68,.3); animation: flashBorder .6s ease-in-out infinite; }
+  @keyframes flashBorder { 0%,100%{border-color:rgba(255,34,68,.3)} 50%{border-color:rgba(255,34,68,.9);box-shadow:0 0 8px rgba(255,34,68,.4)} }
+
+  .status-sub { font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); }
+  .conf-bar-wrap { margin-top: 10px; }
+  .conf-bar-label { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-bottom: 5px; }
+  .conf-bar-track { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden; }
+  .conf-bar-fill  { height: 100%; border-radius: 2px; transition: width .5s ease, background .3s; background: var(--green); }
+
+  /* ── ALERTS: fixed-height box with its OWN scroll ──────────────────────── */
+  .alerts-section {
+    padding: 14px 16px 8px;
+    display: flex;
+    flex-direction: column;
+    height: 260px;    /* fixed height — only this box scrolls */
+    flex-shrink: 0;
+  }
+  .alerts-header {
+    font-family: var(--font-head); font-size: 9px; letter-spacing: 2px;
+    color: var(--text-dim); text-transform: uppercase;
+    margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
+  .alerts-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  #alertCount { font-family: var(--font-mono); font-size: 10px; background: rgba(255,34,68,.15); color: var(--red); border: 1px solid rgba(255,34,68,.3); border-radius: 3px; padding: 1px 6px; }
+
+  #alertsList {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;   /* ← only the list scrolls */
+    overflow-x: hidden;
+    display: flex; flex-direction: column; gap: 5px;
+    padding-right: 4px;
+  }
+  #alertsList::-webkit-scrollbar { width: 3px; }
+  #alertsList::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 2px; }
+
+  .alert-item { background: var(--bg-card); border: 1px solid var(--border); border-left-width: 3px; border-radius: 5px; padding: 8px 10px; display: flex; align-items: flex-start; gap: 8px; animation: slideIn .25s ease; flex-shrink: 0; }
+  @keyframes slideIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:translateX(0)} }
+  .alert-item.info     { border-left-color: var(--cyan); }
+  .alert-item.warning  { border-left-color: var(--orange); }
+  .alert-item.critical { border-left-color: var(--red); background: rgba(255,34,68,.06); }
+  .alert-item.success  { border-left-color: var(--green); }
+  .alert-icon svg { width: 13px; height: 13px; }
+  .alert-body { flex: 1; min-width: 0; }
+  .alert-msg  { font-size: 12px; color: var(--text-primary); line-height: 1.4; font-weight: 500; }
+  .alert-item.critical .alert-msg { color: #ff6677; }
+  .alert-time { font-family: var(--font-mono); font-size: 9px; color: var(--text-dim); margin-top: 3px; }
+
+  /* ── STATUSBAR (pinned to bottom of right panel) ───────────────────────── */
+  .statusbar {
+    flex: 0 0 auto;
+    border-top: 1px solid var(--border); padding: 5px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg-root);
+  }
+  .sb-item { font-family: var(--font-mono); font-size: 9px; color: var(--text-dim); letter-spacing: .8px; text-transform: uppercase; }
+  .sb-item span { color: var(--text-secondary); }
+  .sb-item.green span { color: var(--green); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-left">
+      <div class="header-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <circle cx="12" cy="11" r="3"/><line x1="12" y1="14" x2="12" y2="17"/>
+        </svg>
+      </div>
+      <div class="header-title">AI <span>Surveillance</span> &amp; Threat Detection</div>
+    </div>
+    <div class="header-right">
+      <div class="hdr-badge">
+        <div class="dot" id="connDot"></div>
+        <span id="connLabel">CONNECTED</span>
+      </div>
+      <div id="clock">--:--:--</div>
+      <div class="user-chip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        {{ username }}
+      </div>
+      <a href="/logout" class="hdr-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Logout
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── LEFT: VIDEO ─────────────────────────────────────────────────────── -->
+    <div class="video-section">
+      <div class="video-topbar">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="cam-label">Camera</span>
+          <span class="cam-id">{{ node_id }}</span>
+          <span class="cam-label" style="margin-left:4px">▸</span>
+          <span class="cam-label">{{ location | upper }}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <span class="fps-display">FPS: <span id="fpsVal">--</span></span>
+          <span class="rec-badge">REC</span>
+        </div>
+      </div>
+
+      <div class="video-wrapper">
+        <div class="corner-br"></div>
+        <div class="corner-bl"></div>
+
+        <img id="videoFeed" src="/video_feed" alt="Live Feed"
+          onerror="this.style.display='none'; document.getElementById('noSignal').style.display='flex';"
+          onload="document.getElementById('noSignal').style.display='none'; this.style.display='block';"
+          style="display:none;" />
+
+        <!-- detection bounding boxes drawn here -->
+        <canvas id="detectionCanvas"></canvas>
+
+        <div class="no-signal" id="noSignal">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#5a7a94" stroke-width="1.2">
+            <rect x="2" y="6" width="20" height="14" rx="2"/>
+            <path d="M8 6V4h8v2"/>
+            <path d="M12 11l-3 4h6l-3-4z" fill="#5a7a94"/>
+            <line x1="2" y1="2" x2="22" y2="22" stroke="#ff2244" stroke-width="1.5"/>
+          </svg>
+          <p>NO SIGNAL — WAITING FOR STREAM</p>
+        </div>
+      </div>
+
+      <div class="video-footer">
+        <div class="vf-stat">Protocol: <span>WebSocket / MJPEG</span></div>
+        <div class="vf-stat">Uptime: <span id="uptimeLabel">00:00:00</span></div>
+        <div class="vf-stat">Latency: <span id="latencyVal">—</span></div>
+      </div>
+    </div>
+
+    <!-- ── RIGHT PANEL ─────────────────────────────────────────────────────── -->
+    <div class="right-panel">
+
+      <!-- scrollable upper portion -->
+      <div class="panel-scroll">
+
+        <div class="user-notice">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
+          Operator View — {{ node_id }} · {{ location }}
+        </div>
+
+        <!-- Node info -->
+        <div class="panel-section">
+          <div class="section-label">Node Information</div>
+          <div class="info-grid">
+            <div class="info-cell">
+              <div class="info-cell-label">Node ID</div>
+              <div class="info-cell-value cyan">{{ node_id }}</div>
+            </div>
+            <div class="info-cell">
+              <div class="info-cell-label">Location</div>
+              <div class="info-cell-value">{{ location }}</div>
+            </div>
+            <div class="info-cell">
+              <div class="info-cell-label">Operator</div>
+              <div class="info-cell-value green">{{ username }}</div>
+            </div>
+            <div class="info-cell">
+              <div class="info-cell-label">Status</div>
+              <div class="info-cell-value green" id="sysStatus">ONLINE</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Threat status -->
+        <div class="panel-section">
+          <div class="section-label">Threat Status</div>
+          <div class="status-card safe" id="statusCard">
+            <div class="status-header">
+              <div class="status-icon safe" id="statusIcon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  <polyline points="9 12 11 14 15 10"/>
+                </svg>
+              </div>
+              <div>
+                <div class="status-badge safe" id="statusBadge">SAFE</div>
+                <div class="status-sub" id="statusSub">No threats detected</div>
+              </div>
+            </div>
+            <div class="conf-bar-wrap">
+              <div class="conf-bar-label">
+                <span>Detection Confidence</span>
+                <span id="confPct">0%</span>
+              </div>
+              <div class="conf-bar-track">
+                <div class="conf-bar-fill" id="confBar" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /panel-scroll -->
+
+      <!-- ALERTS: fixed-height box pinned above statusbar, scrolls independently -->
+      <div class="alerts-section">
+        <div class="alerts-header">
+          Live Alerts <span id="alertCount">0</span>
+        </div>
+        <div id="alertsList"></div>
+      </div>
+
+      <!-- STATUSBAR: always pinned to bottom -->
+      <div class="statusbar">
+        <div class="sb-item green">Backend: <span id="beStatus">ONLINE</span></div>
+        <div class="sb-item">Node: <span>{{ node_id }}</span></div>
+        <div class="sb-item">Latency: <span id="latVal">—</span></div>
+      </div>
+
+    </div><!-- /right-panel -->
+  </main>
+</div>
+
+<script>
+// ── CLOCK ────────────────────────────────────────────────────────────────────
+function updateClock() { document.getElementById('clock').textContent = new Date().toTimeString().split(' ')[0]; }
+setInterval(updateClock, 1000); updateClock();
+
+// ── UPTIME ───────────────────────────────────────────────────────────────────
+let startTime = Date.now();
+setInterval(() => {
+  const s = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById('uptimeLabel').textContent =
+    [Math.floor(s/3600), Math.floor((s%3600)/60), s%60].map(v => String(v).padStart(2,'0')).join(':');
+}, 1000);
+
+// ── FPS ──────────────────────────────────────────────────────────────────────
+let fc = 0, lfps = Date.now();
+document.getElementById('videoFeed').addEventListener('load', () => {
+  fc++;
+  const now = Date.now();
+  if (now - lfps >= 1000) { document.getElementById('fpsVal').textContent = fc; fc = 0; lfps = now; }
+});
+
+// ── CANVAS: bounding box drawing ─────────────────────────────────────────────
+const canvas  = document.getElementById('detectionCanvas');
+const ctx     = canvas.getContext('2d');
+const wrapper = canvas.parentElement;
+
+function resizeCanvas() {
+  canvas.width  = wrapper.clientWidth;
+  canvas.height = wrapper.clientHeight;
+}
+resizeCanvas();
+new ResizeObserver(resizeCanvas).observe(wrapper);
+
+const BOX_COLORS = { face: '#00ff88', weapon: '#ffe033', UNAUTHORIZED: '#ff8c00' };
+
+function drawBoxes(boxes) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!boxes || !boxes.length) return;
+
+  boxes.forEach(b => {
+    const x = b.x * canvas.width;
+    const y = b.y * canvas.height;
+    const w = b.w * canvas.width;
+    const h = b.h * canvas.height;
+
+    let color = BOX_COLORS[b.type] || '#00d4ff';
+    if (b.type === 'face' && b.label === 'UNAUTHORIZED') color = BOX_COLORS.UNAUTHORIZED;
+
+    // box
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = 8;
+    ctx.strokeRect(x, y, w, h);
+    ctx.shadowBlur  = 0;
+
+    // corner accents
+    const cs = 10;
+    ctx.lineWidth = 3;
+    [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy], i) => {
+      ctx.beginPath();
+      ctx.moveTo(cx + (i%2===0 ? cs : -cs), cy);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx, cy + (i<2 ? cs : -cs));
+      ctx.stroke();
+    });
+
+    // label
+    const conf  = b.confidence ? ` ${(b.confidence*100).toFixed(0)}%` : '';
+    const label = b.label + conf;
+    ctx.font      = 'bold 11px "Share Tech Mono", monospace';
+    const tw      = ctx.measureText(label).width + 10;
+    ctx.fillStyle = color + 'cc';
+    ctx.fillRect(x, y - 18, tw, 18);
+    ctx.fillStyle = '#000';
+    ctx.fillText(label, x + 5, y - 5);
+  });
+}
+
+// ── STATUS SYSTEM ─────────────────────────────────────────────────────────────
+const STATUSES = {
+  safe:   { cls:'safe',   badge:'SAFE',                sub:'No threats detected',       cc:'var(--green)' },
+  unauth: { cls:'unauth', badge:'UNAUTHORIZED PERSON', sub:'Unauthorized face detected', cc:'var(--orange)' },
+  weapon: { cls:'weapon', badge:'WEAPON DETECTED',     sub:'Dangerous object in frame',  cc:'var(--yellow)' },
+  threat: { cls:'threat', badge:'HIGH THREAT',         sub:'IMMEDIATE RESPONSE NEEDED',  cc:'var(--red)' },
+};
+const ICONS = {
+  safe:   `<svg viewBox="0 0 24 24" fill="none" stroke="var(--green)"  stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
+  unauth: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="16" r=".5" fill="var(--orange)"/></svg>`,
+  weapon: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>`,
+  threat: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--red)"    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="var(--red)"/></svg>`,
+};
+
+function setStatus(key, conf) {
+  if (!STATUSES[key]) key = 'safe';
+  const s = STATUSES[key];
+  document.getElementById('statusCard').className   = 'status-card ' + s.cls;
+  document.getElementById('statusIcon').className   = 'status-icon ' + s.cls;
+  document.getElementById('statusIcon').innerHTML   = ICONS[s.cls] || ICONS.safe;
+  document.getElementById('statusBadge').className  = 'status-badge ' + s.cls;
+  document.getElementById('statusBadge').textContent = s.badge;
+  document.getElementById('statusSub').textContent   = s.sub;
+  document.getElementById('confBar').style.width     = conf + '%';
+  document.getElementById('confBar').style.background = s.cc;
+  document.getElementById('confPct').textContent     = conf.toFixed(1) + '%';
+}
+
+// ── ALERTS ────────────────────────────────────────────────────────────────────
+const ALERT_ICONS = {
+  info:     `<svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)"   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  warning:  `<svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>`,
+  critical: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--red)"    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="var(--red)"/></svg>`,
+  success:  `<svg viewBox="0 0 24 24" fill="none" stroke="var(--green)"  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+};
+let alertsData = [];
+
+function pushAlert(msg, type = 'info') {
+  alertsData.unshift({ msg, type, time: new Date().toTimeString().split(' ')[0] });
+  if (alertsData.length > 50) alertsData.pop();
+  const list = document.getElementById('alertsList');
+  list.innerHTML = alertsData.map(a => `
+    <div class="alert-item ${a.type}">
+      <div class="alert-icon">${ALERT_ICONS[a.type] || ALERT_ICONS.info}</div>
+      <div class="alert-body">
+        <div class="alert-msg">${a.msg}</div>
+        <div class="alert-time">${a.time}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('alertCount').textContent = alertsData.length;
+  // auto-scroll to newest alert
+  list.scrollTop = 0;
+}
+
+// ── POLL /data ────────────────────────────────────────────────────────────────
+let lastStatusKey = 'safe', pollErrors = 0;
+
+async function pollData() {
+  const t0 = Date.now();
+  try {
+    const resp = await fetch('/data');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const d = await resp.json();
+
+    pollErrors = 0;
+    document.getElementById('connDot').classList.remove('offline');
+    document.getElementById('connLabel').textContent = 'CONNECTED';
+    document.getElementById('beStatus').textContent  = 'ONLINE';
+    const lat = Date.now() - t0;
+    document.getElementById('latencyVal').textContent = lat + 'ms';
+    document.getElementById('latVal').textContent     = lat + 'ms';
+
+    // draw detection boxes
+    drawBoxes(d.boxes || []);
+
+    // status
+    let key = 'safe';
+    if      (d.status === 'HIGH_THREAT')      key = 'threat';
+    else if (d.status === 'WEAPON_DETECTED')  key = 'weapon';
+    else if (d.status === 'UNAUTHORIZED')     key = 'unauth';
+    setStatus(key, d.confidence || 0);
+
+    if (key !== lastStatusKey) {
+      if      (key === 'threat') pushAlert('⚠ HIGH THREAT detected at your node', 'critical');
+      else if (key === 'weapon') pushAlert('Weapon detected at ' + (d.location || 'your node'), 'warning');
+      else if (key === 'unauth') pushAlert('Unauthorized person at ' + (d.location || 'your node'), 'warning');
+      else pushAlert('Area cleared — status SAFE', 'success');
+      lastStatusKey = key;
+    }
+  } catch {
+    pollErrors++;
+    if (pollErrors > 3) {
+      document.getElementById('connDot').classList.add('offline');
+      document.getElementById('connLabel').textContent = 'DISCONNECTED';
+      document.getElementById('beStatus').textContent  = 'OFFLINE';
+      if (pollErrors === 4) pushAlert('Connection to backend lost', 'critical');
+    }
+  }
+}
+
+setInterval(pollData, 500);
+pushAlert('Session started — monitoring {{ location }}', 'info');
+</script>
+</body>
+</html>

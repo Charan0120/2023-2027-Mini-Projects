@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Surveillance — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #060a0f;
+    --panel:    #0b1119;
+    --card:     #0f1822;
+    --border:   #1a2d42;
+    --cyan:     #00d4ff;
+    --green:    #00ff88;
+    --red:      #ff2244;
+    --text:     #d8eaf8;
+    --dim:      #3a5a72;
+    --secondary:#5a7a94;
+    --font-head:'Orbitron', monospace;
+    --font-ui:  'Rajdhani', sans-serif;
+    --font-mono:'Share Tech Mono', monospace;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    overflow: hidden;
+  }
+
+  /* ── SCANLINE ─────────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,.15) 2px, rgba(0,0,0,.15) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── GRID BG ──────────────────────────────────────────── */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* ── GLOW ORBS ────────────────────────────────────────── */
+  .orb {
+    position: fixed; border-radius: 50%;
+    filter: blur(90px); pointer-events: none; z-index: 0;
+  }
+  .orb-1 {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(0,212,255,.12) 0%, transparent 70%);
+    top: -120px; left: -100px;
+    animation: orbFloat 8s ease-in-out infinite;
+  }
+  .orb-2 {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(0,255,136,.08) 0%, transparent 70%);
+    bottom: -80px; right: -80px;
+    animation: orbFloat 10s ease-in-out infinite reverse;
+  }
+  @keyframes orbFloat {
+    0%,100% { transform: translate(0,0); }
+    50%      { transform: translate(20px, 30px); }
+  }
+
+  /* ── WRAPPER ──────────────────────────────────────────── */
+  .wrapper {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 100vh; padding: 24px;
+    gap: 32px;
+  }
+
+  /* ── LOGO ─────────────────────────────────────────────── */
+  .logo-area {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 10px;
+    animation: fadeDown .6s ease both;
+  }
+  .logo-icon {
+    width: 60px; height: 60px;
+    border: 1.5px solid var(--cyan);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,212,255,.06);
+    box-shadow: 0 0 32px rgba(0,212,255,.2), inset 0 0 20px rgba(0,212,255,.04);
+    position: relative;
+  }
+  .logo-icon::before {
+    content: '';
+    position: absolute; inset: -4px;
+    border: 1px solid rgba(0,212,255,.2);
+    border-radius: 18px;
+  }
+  .logo-icon svg { width: 30px; height: 30px; }
+
+  .logo-title {
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .logo-title span { color: var(--cyan); }
+  .logo-sub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--secondary);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ── CARD ─────────────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 100%; max-width: 420px;
+    padding: 36px 32px;
+    box-shadow:
+      0 0 60px rgba(0,212,255,.06),
+      0 32px 64px rgba(0,0,0,.4);
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp .5s ease .1s both;
+  }
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), var(--green), transparent);
+    opacity: .5;
+  }
+
+  /* ── CARD HEADER ──────────────────────────────────────── */
+  .card-header {
+    margin-bottom: 28px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title {
+    font-family: var(--font-head);
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--secondary);
+  }
+  .card-badge {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--green);
+    background: rgba(0,255,136,.1);
+    border: 1px solid rgba(0,255,136,.25);
+    border-radius: 4px;
+    padding: 3px 8px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .card-badge::before {
+    content: '';
+    width: 5px; height: 5px;
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 5px var(--green);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── FORM ─────────────────────────────────────────────── */
+  .field {
+    margin-bottom: 18px;
+    position: relative;
+  }
+  .field label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 7px;
+  }
+  .field input {
+    width: 100%;
+    background: rgba(0,0,0,.3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .25s, box-shadow .25s;
+    letter-spacing: .5px;
+  }
+  .field input::placeholder { color: var(--dim); }
+  .field input:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(0,212,255,.08), 0 0 16px rgba(0,212,255,.1);
+  }
+
+  /* field icon */
+  .field .icon {
+    position: absolute;
+    right: 13px; bottom: 13px;
+    color: var(--dim);
+    pointer-events: none;
+  }
+  .field .icon svg { width: 16px; height: 16px; }
+  .field input:focus + .icon { color: var(--cyan); }
+
+  /* ── ERROR ────────────────────────────────────────────── */
+  .error-box {
+    background: rgba(255,34,68,.08);
+    border: 1px solid rgba(255,34,68,.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 9px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--red);
+    animation: shake .35s ease;
+  }
+  .error-box svg { width: 15px; height: 15px; flex-shrink: 0; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)}
+    60%{transform:translateX(5px)} 80%{transform:translateX(-3px)}
+  }
+
+  /* ── SUBMIT ───────────────────────────────────────────── */
+  .btn-login {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, rgba(0,212,255,.15), rgba(0,255,136,.1));
+    border: 1px solid rgba(0,212,255,.35);
+    border-radius: 8px;
+    color: var(--cyan);
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all .25s;
+    margin-top: 6px;
+  }
+  .btn-login:hover {
+    background: linear-gradient(135deg, rgba(0,212,255,.25), rgba(0,255,136,.18));
+    border-color: var(--cyan);
+    box-shadow: 0 0 24px rgba(0,212,255,.2);
+    transform: translateY(-1px);
+  }
+  .btn-login:active { transform: translateY(0); }
+  .btn-login::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.06) 50%, transparent 100%);
+    transform: translateX(-100%);
+    transition: transform .5s;
+  }
+  .btn-login:hover::after { transform: translateX(100%); }
+
+  .btn-login.loading {
+    pointer-events: none;
+    opacity: .7;
+  }
+  .btn-login .spinner {
+    display: none;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,212,255,.3);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── FOOTER ───────────────────────────────────────────── */
+  .card-footer {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .footer-item {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: .8px;
+    text-transform: uppercase;
+  }
+  .footer-item span { color: var(--secondary); }
+
+  /* ── BOTTOM TAGLINE ───────────────────────────────────── */
+  .tagline {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    animation: fadeUp .5s ease .3s both;
+  }
+
+  /* ── ANIMS ────────────────────────────────────────────── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="wrapper">
+
+  <!-- LOGO -->
+  <div class="logo-area">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <circle cx="12" cy="11" r="3"/>
+        <line x1="12" y1="14" x2="12" y2="17"/>
+      </svg>
+    </div>
+    <div class="logo-title">AI <span>Surveillance</span> System</div>
+    <div class="logo-sub">Edge AI · Threat Detection · Real-time</div>
+  </div>
+
+  <!-- CARD -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Operator Login</div>
+      <div class="card-badge">Secure Access</div>
+    </div>
+
+    {% if error %}
+    <div class="error-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" id="loginForm" onsubmit="handleSubmit(event)">
+      <div class="field">
+        <label>Username</label>
+        <input id="username" name="username" type="text" placeholder="operator_id" required autocomplete="username" />
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+      </div>
+
+      <div class="field">
+        <label>Password</label>
+        <input id="password" name="password" type="password" placeholder="••••••••" required autocomplete="current-password" />
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </span>
+      </div>
+
+      <button type="submit" class="btn-login" id="loginBtn">
+        <span class="spinner" id="spinner"></span>
+        <span id="btnText">Authenticate</span>
+      </button>
+    </form>
+
+    <div class="card-footer">
+      <div class="footer-item">Node: <span>SURVEILLANCE-SYS</span></div>
+      <div class="footer-item">Protocol: <span>AES-256</span></div>
+      <div class="footer-item">v1.0.0</div>
+    </div>
+  </div>
+
+  <div class="tagline">Authorized personnel only · All access is logged</div>
+</div>
+
+<script>
+function handleSubmit(e) {
+  const btn = document.getElementById('loginBtn');
+  const spinner = document.getElementById('spinner');
+  const btnText = document.getElementById('btnText');
+  btn.classList.add('loading');
+  spinner.style.display = 'inline-block';
+  btnText.textContent = 'Authenticating...';
+  // Let the form submit naturally — the loading state provides visual feedback
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Large binaries
+ngrok.exe
+
+# Secret Keys - DO NOT UPLOAD!
+firebasekey.json
+
+# Local uploaded files (optional, but usually good to ignore in repo)
+authorized/

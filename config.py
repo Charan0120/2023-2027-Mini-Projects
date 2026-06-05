@@ -1,0 +1,5 @@
+AUTHORIZED_FOLDER = "authorized"
+MODEL_PATH = "best1.pt"
+CONF_THRESHOLD = 0.4
+LOCATION = "Main Entrance"
+NODE_ID = "NODE-A1"

@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Surveillance & Threat Detection System</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-root:    #060a0f;
+    --bg-panel:   #0b1119;
+    --bg-card:    #0f1822;
+    --bg-card2:   #121f2e;
+    --border:     #1a2d42;
+    --border-glow:#1e3a52;
+
+    --green:  #00ff88;
+    --green2: #00cc6a;
+    --green-dim: rgba(0,255,136,.08);
+
+    --orange: #ff8c00;
+    --orange2:#e07800;
+    --orange-dim: rgba(255,140,0,.09);
+
+    --yellow: #ffe033;
+    --yellow2:#d4bb22;
+    --yellow-dim: rgba(255,224,51,.08);
+
+    --red:    #ff2244;
+    --red2:   #cc1133;
+    --red-dim: rgba(255,34,68,.09);
+
+    --cyan:   #00d4ff;
+    --cyan-dim: rgba(0,212,255,.07);
+
+    --text-primary: #d8eaf8;
+    --text-secondary: #5a7a94;
+    --text-dim: #3a5a72;
+
+    --font-head: 'Orbitron', monospace;
+    --font-ui:   'Rajdhani', sans-serif;
+    --font-mono: 'Share Tech Mono', monospace;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg-root);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    overflow: hidden;  /* lock viewport — NO page scroll */
+  }
+
+  /* ── SCANLINE OVERLAY ─────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,.18) 2px,
+      rgba(0,0,0,.18) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── LAYOUT ───────────────────────────────────────── */
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ───────────────────────────────────────── */
+  header {
+    flex: 0 0 56px;   /* fixed height, never shrinks */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    z-index: 10;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), var(--green), transparent);
+    animation: headerGlow 4s ease-in-out infinite;
+  }
+  @keyframes headerGlow {
+    0%,100% { opacity: .3; } 50% { opacity: 1; }
+  }
+
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-logo {
+    width: 32px; height: 32px;
+    border: 1.5px solid var(--cyan);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 12px rgba(0,212,255,.3);
+    flex-shrink: 0;
+  }
+  .header-logo svg { width: 18px; height: 18px; }
+
+  .header-title {
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--text-primary);
+    text-transform: uppercase;
+  }
+  .header-title span { color: var(--cyan); }
+
+  .header-right { display: flex; align-items: center; gap: 20px; }
+
+  .hdr-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+  .hdr-badge .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  .hdr-badge .dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); animation: none; }
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: .4; }
+  }
+
+  #clock {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+  }
+
+  /* ── MAIN BODY ────────────────────────────────────── */
+  main {
+    flex: 1;
+    min-height: 0;        /* crucial — lets flex child shrink below content */
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* ── LEFT: VIDEO SECTION ──────────────────────────── */
+  .video-section {
+    background: #000;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;   /* clip video within its column */
+  }
+
+  .video-topbar {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .vtb-left { display: flex; align-items: center; gap: 10px; }
+  .cam-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: .8px;
+    text-transform: uppercase;
+  }
+  .cam-id {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    border: 1px solid rgba(0,212,255,.2);
+    border-radius: 3px;
+    padding: 1px 6px;
+  }
+  .vtb-right { display: flex; align-items: center; gap: 14px; }
+  .fps-display {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: .5px;
+  }
+  .rec-badge {
+    display: flex; align-items: center; gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--red);
+    letter-spacing: .8px;
+  }
+  .rec-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 6px var(--red);
+    animation: pulse .8s ease-in-out infinite;
+  }
+
+  /* ── VIDEO CANVAS WRAPPER ─────────────────────────── */
+  .video-wrapper {
+    flex: 1;
+    min-height: 0;    /* allow shrinking inside flex column */
+    position: relative;
+    overflow: hidden;
+    background: #000;
+  }
+  #videoFeed {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  #overlayCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  /* corner brackets */
+  .video-wrapper::before, .video-wrapper::after,
+  .corner-br, .corner-bl {
+    content: '';
+    position: absolute;
+    width: 22px; height: 22px;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .video-wrapper::before { top: 12px; left: 12px; border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+  .video-wrapper::after  { top: 12px; right: 12px; border-top: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
+  .corner-br { bottom: 12px; right: 12px; border-bottom: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
+  .corner-bl { bottom: 12px; left: 12px; border-bottom: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+
+  .no-signal {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: #000;
+    z-index: 5;
+  }
+  .no-signal svg { opacity: .25; }
+  .no-signal p {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+  }
+
+  /* video footer */
+  .video-footer {
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .vf-stat {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .vf-stat span { color: var(--text-secondary); }
+
+  /* ── RIGHT PANEL ──────────────────────────────────── */
+  .right-panel {
+    background: var(--bg-panel);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;   /* panel itself never scrolls — children do */
+  }
+
+  /* scrollable upper portion of right panel */
+  .panel-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .panel-scroll::-webkit-scrollbar { width: 3px; }
+  .panel-scroll::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 2px; }
+
+  .panel-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .section-label {
+    font-family: var(--font-head);
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── NODE INFO ────────────────────────────────────── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .info-cell {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .info-cell-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+    font-family: var(--font-mono);
+  }
+  .info-cell-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-primary);
+    letter-spacing: .5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .info-cell-value.cyan  { color: var(--cyan); }
+  .info-cell-value.green { color: var(--green); }
+
+  /* ── STATUS CARD ──────────────────────────────────── */
+  .status-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .3s, box-shadow .3s;
+  }
+  .status-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity .3s;
+    pointer-events: none;
+  }
+  .status-card.safe   { border-color: var(--green2); box-shadow: 0 0 18px rgba(0,204,106,.12); }
+  .status-card.safe::before { background: var(--green-dim); opacity: 1; }
+  .status-card.unauth { border-color: var(--orange2); box-shadow: 0 0 18px rgba(224,120,0,.15); }
+  .status-card.unauth::before { background: var(--orange-dim); opacity: 1; }
+  .status-card.weapon { border-color: var(--yellow2); box-shadow: 0 0 18px rgba(212,187,34,.12); }
+  .status-card.weapon::before { background: var(--yellow-dim); opacity: 1; }
+  .status-card.threat { border-color: var(--red2); box-shadow: 0 0 20px rgba(204,17,51,.18); }
+  .status-card.threat::before { background: var(--red-dim); opacity: 1; }
+
+  .status-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .status-icon {
+    width: 38px; height: 38px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .status-icon svg { width: 20px; height: 20px; }
+  .status-icon.safe   { background: rgba(0,255,136,.1); }
+  .status-icon.unauth { background: rgba(255,140,0,.1); }
+  .status-icon.weapon { background: rgba(255,224,51,.1); }
+  .status-icon.threat { background: rgba(255,34,68,.1); }
+
+  .status-text {}
+  .status-badge {
+    font-family: var(--font-head);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-bottom: 3px;
+  }
+  .status-badge.safe   { background: rgba(0,255,136,.15); color: var(--green); border: 1px solid rgba(0,255,136,.3); }
+  .status-badge.unauth { background: rgba(255,140,0,.15); color: var(--orange); border: 1px solid rgba(255,140,0,.3); }
+  .status-badge.weapon { background: rgba(255,224,51,.15); color: var(--yellow); border: 1px solid rgba(255,224,51,.3); }
+  .status-badge.threat { background: rgba(255,34,68,.15); color: var(--red); border: 1px solid rgba(255,34,68,.3); animation: flashBorder .6s ease-in-out infinite; }
+  @keyframes flashBorder {
+    0%,100% { border-color: rgba(255,34,68,.3); }
+    50%      { border-color: rgba(255,34,68,.9); box-shadow: 0 0 8px rgba(255,34,68,.4); }
+  }
+
+  .status-sub {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    letter-spacing: .5px;
+  }
+
+  .status-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .det-row {
+    background: rgba(0,0,0,.3);
+    border-radius: 5px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255,255,255,.04);
+  }
+  .det-label {
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    margin-bottom: 3px;
+  }
+  .det-value {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .det-value.highlight { color: var(--cyan); }
+
+  /* confidence bar */
+  .conf-bar-wrap {
+    margin-top: 10px;
+  }
+  .conf-bar-label {
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+  }
+  .conf-bar-track {
+    height: 4px;
+    background: rgba(255,255,255,.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .conf-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width .5s ease, background .3s;
+    background: var(--green);
+  }
+
+  /* ── ALERTS: fixed height box, only list scrolls ─── */
+  .alerts-section {
+    height: 260px;       /* fixed — never grows the page */
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 16px 10px;
+  }
+  .alerts-header {
+    font-family: var(--font-head);
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .alerts-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  #alertCount {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    background: rgba(255,34,68,.15);
+    color: var(--red);
+    border: 1px solid rgba(255,34,68,.3);
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin-left: 4px;
+  }
+
+  #alertsList {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;   /* ONLY the list scrolls, not the page */
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-right: 4px;
+  }
+  #alertsList::-webkit-scrollbar { width: 3px; }
+  #alertsList::-webkit-scrollbar-track { background: transparent; }
+  #alertsList::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 2px; }
+
+  .alert-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    border-radius: 5px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    animation: slideIn .25s ease;
+    flex-shrink: 0;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .alert-item.info     { border-left-color: var(--cyan); }
+  .alert-item.warning  { border-left-color: var(--orange); }
+  .alert-item.critical { border-left-color: var(--red); background: rgba(255,34,68,.06); }
+  .alert-item.success  { border-left-color: var(--green); }
+
+  .alert-icon { flex-shrink: 0; margin-top: 1px; }
+  .alert-icon svg { width: 13px; height: 13px; }
+  .alert-body { flex: 1; min-width: 0; }
+  .alert-msg {
+    font-size: 12px;
+    color: var(--text-primary);
+    line-height: 1.4;
+    font-family: var(--font-ui);
+    font-weight: 500;
+  }
+  .alert-item.critical .alert-msg { color: #ff6677; }
+  .alert-time {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: .5px;
+    margin-top: 3px;
+  }
+
+  /* ── BOTTOM STATUS BAR ────────────────────────────── */
+  .statusbar {
+    border-top: 1px solid var(--border);
+    padding: 5px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-root);
+    flex-shrink: 0;
+  }
+  .sb-item {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: .8px;
+    text-transform: uppercase;
+  }
+  .sb-item span { color: var(--text-secondary); }
+  .sb-item.green span { color: var(--green); }
+  .sb-item.red span   { color: var(--red); }
+
+  /* ── UTILITIES ────────────────────────────────────── */
+  .glow-green { text-shadow: 0 0 8px rgba(0,255,136,.5); }
+  .glow-red   { text-shadow: 0 0 8px rgba(255,34,68,.5); }
+  .glow-cyan  { text-shadow: 0 0 8px rgba(0,212,255,.5); }
+
+  /* ── USER CHIP & BUTTONS ──────────────────────────────── */
+  .user-chip {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(0,212,255,.07);
+    border: 1px solid rgba(0,212,255,.2);
+    border-radius: 6px; padding: 4px 10px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--cyan);
+  }
+  .user-chip svg { width: 13px; height: 13px; }
+
+  .hdr-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 10px;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: .8px; text-transform: uppercase;
+    color: var(--text-secondary); cursor: pointer;
+    transition: all .2s;
+  }
+  .hdr-btn:hover {
+    background: rgba(0,212,255,.08);
+    border-color: rgba(0,212,255,.3);
+    color: var(--cyan);
+  }
+  .hdr-btn svg { width: 13px; height: 13px; }
+  .hdr-btn.admin-btn:hover { background: rgba(0,255,136,.07); border-color: rgba(0,255,136,.3); color: var(--green); }
+  .hdr-btn.logout-btn:hover { background: rgba(255,34,68,.07); border-color: rgba(255,34,68,.3); color: var(--red); }
+
+  /* ── ADMIN PANEL (slide-in overlay) ──────────────────── */
+  .admin-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    z-index: 1000; opacity: 0; pointer-events: none;
+    transition: opacity .3s;
+  }
+  .admin-overlay.open { opacity: 1; pointer-events: all; }
+
+  .admin-panel {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: 460px; max-width: 100vw;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border);
+    z-index: 1001;
+    display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform .35s cubic-bezier(.4,0,.2,1);
+    overflow: hidden;
+  }
+  .admin-overlay.open .admin-panel { transform: translateX(0); }
+
+  .ap-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .ap-header::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    opacity: .4;
+  }
+  .ap-title {
+    font-family: var(--font-head); font-size: 11px;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--text-primary);
+  }
+  .ap-title span { color: var(--green); }
+  .ap-close {
+    width: 28px; height: 28px;
+    background: rgba(255,255,255,.05); border: 1px solid var(--border);
+    border-radius: 6px; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; color: var(--text-secondary);
+    transition: all .2s;
+  }
+  .ap-close:hover { background: rgba(255,34,68,.1); border-color: rgba(255,34,68,.3); color: var(--red); }
+  .ap-close svg { width: 14px; height: 14px; }
+
+  /* tabs */
+  .ap-tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .ap-tab {
+    flex: 1; padding: 10px;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--text-dim); text-align: center; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all .2s;
+  }
+  .ap-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); background: rgba(0,212,255,.04); }
+  .ap-tab:hover:not(.active) { color: var(--text-secondary); }
+
+  /* tab content */
+  .ap-body { flex: 1; overflow-y: auto; padding: 20px; }
+  .ap-body::-webkit-scrollbar { width: 4px; }
+  .ap-body::-webkit-scrollbar-track { background: transparent; }
+  .ap-body::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 2px; }
+  .ap-pane { display: none; }
+  .ap-pane.active { display: block; }
+
+  /* section heading inside panel */
+  .ap-section-title {
+    font-family: var(--font-head); font-size: 9px;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ap-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* upload zone */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px; padding: 28px;
+    text-align: center; cursor: pointer;
+    transition: all .25s; margin-bottom: 16px;
+    background: rgba(0,0,0,.2);
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--cyan); background: rgba(0,212,255,.04);
+  }
+  .upload-zone .uz-icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-zone p {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text-secondary); line-height: 1.6;
+  }
+  .upload-zone p span { color: var(--cyan); }
+  .upload-preview {
+    width: 100%; max-height: 180px; object-fit: cover;
+    border-radius: 8px; display: none; margin-bottom: 12px;
+    border: 1px solid var(--border);
+  }
+
+  /* input field inside panel */
+  .ap-input {
+    width: 100%; background: rgba(0,0,0,.3);
+    border: 1px solid var(--border); border-radius: 7px;
+    padding: 10px 13px; margin-bottom: 12px;
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--text-primary); outline: none;
+    transition: border-color .2s;
+  }
+  .ap-input::placeholder { color: var(--text-dim); }
+  .ap-input:focus { border-color: var(--cyan); }
+  .ap-label {
+    display: block; font-family: var(--font-mono); font-size: 9px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 6px;
+  }
+
+  /* buttons inside panel */
+  .ap-btn {
+    width: 100%; padding: 11px;
+    background: linear-gradient(135deg, rgba(0,212,255,.12), rgba(0,255,136,.08));
+    border: 1px solid rgba(0,212,255,.3);
+    border-radius: 7px; color: var(--cyan);
+    font-family: var(--font-head); font-size: 10px;
+    font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    cursor: pointer; transition: all .2s;
+  }
+  .ap-btn:hover {
+    background: linear-gradient(135deg, rgba(0,212,255,.2), rgba(0,255,136,.14));
+    box-shadow: 0 0 20px rgba(0,212,255,.15);
+  }
+  .ap-btn.danger {
+    background: rgba(255,34,68,.08); border-color: rgba(255,34,68,.3);
+    color: var(--red);
+  }
+  .ap-btn.danger:hover { background: rgba(255,34,68,.15); }
+
+  /* message banner */
+  .ap-msg {
+    padding: 9px 13px; border-radius: 7px;
+    font-family: var(--font-mono); font-size: 11px;
+    margin-bottom: 14px; display: none;
+  }
+  .ap-msg.ok  { background: rgba(0,255,136,.1); border: 1px solid rgba(0,255,136,.3); color: var(--green); }
+  .ap-msg.err { background: rgba(255,34,68,.1);  border: 1px solid rgba(255,34,68,.3);  color: var(--red);   }
+
+  /* person grid */
+  .person-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-top: 12px;
+  }
+  .person-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden; position: relative;
+  }
+  .person-card img {
+    width: 100%; height: 100px; object-fit: cover; display: block;
+  }
+  .person-card .pc-name {
+    padding: 6px 8px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text-primary); background: rgba(0,0,0,.4);
+  }
+  .person-card .pc-del {
+    position: absolute; top: 5px; right: 5px;
+    width: 22px; height: 22px;
+    background: rgba(255,34,68,.7); border: none;
+    border-radius: 4px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: white; transition: background .2s;
+  }
+  .person-card .pc-del:hover { background: var(--red); }
+  .person-card .pc-del svg { width: 11px; height: 11px; }
+
+  /* user table */
+  .user-table {
+    width: 100%; border-collapse: collapse;
+    font-family: var(--font-mono); font-size: 11px;
+  }
+  .user-table th {
+    text-align: left; padding: 8px 10px;
+    font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--text-dim); border-bottom: 1px solid var(--border);
+  }
+  .user-table td {
+    padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,.04);
+    color: var(--text-secondary);
+  }
+  .user-table tr:last-child td { border-bottom: none; }
+  .user-table .role-badge {
+    font-size: 9px; padding: 2px 7px; border-radius: 3px;
+  }
+  .user-table .role-badge.admin { background: rgba(0,212,255,.12); color: var(--cyan); }
+  .user-table .role-badge.user  { background: rgba(0,255,136,.1);  color: var(--green); }
+  .del-user-btn {
+    background: rgba(255,34,68,.1); border: 1px solid rgba(255,34,68,.25);
+    color: var(--red); border-radius: 4px; padding: 3px 8px;
+    font-family: var(--font-mono); font-size: 9px; cursor: pointer;
+    transition: all .2s;
+  }
+  .del-user-btn:hover { background: rgba(255,34,68,.2); }
+
+  /* create user form grid */
+  .create-user-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .create-user-grid .full { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── HEADER ── -->
+  <header>
+    <div class="header-left">
+      <div class="header-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <circle cx="12" cy="11" r="3"/>
+          <line x1="12" y1="14" x2="12" y2="17"/>
+        </svg>
+      </div>
+      <div class="header-title">AI <span>Surveillance</span> &amp; Threat Detection System</div>
+    </div>
+    <div class="header-right">
+      <div class="hdr-badge">
+        <div class="dot" id="connDot"></div>
+        <span id="connLabel">CONNECTED</span>
+      </div>
+      <div id="clock">--:--:--</div>
+      <!-- user chip -->
+      <div class="user-chip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        {{ username }}
+      </div>
+      <!-- admin panel toggle -->
+      <button class="hdr-btn admin-btn" onclick="toggleAdminPanel()" title="Admin Panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+        </svg>
+        Admin
+      </button>
+      <!-- logout -->
+      <a href="/logout" class="hdr-btn logout-btn" title="Logout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Logout
+      </a>
+    </div>
+  </header>
+
+  <!-- ── MAIN ── -->
+  <main>
+
+    <!-- LEFT: VIDEO -->
+    <div class="video-section">
+      <div class="video-topbar">
+        <div class="vtb-left">
+          <span class="cam-label">Camera</span>
+          <span class="cam-id" id="camId">ESP32-CAM-01</span>
+          <span class="cam-label" style="margin-left:4px;">▸</span>
+          <span class="cam-label" id="locationLabel">MAIN ENTRANCE</span>
+        </div>
+        <div class="vtb-right">
+          <span class="fps-display">FPS: <span id="fpsVal">--</span></span>
+          <span class="rec-badge">REC</span>
+        </div>
+      </div>
+
+      <div class="video-wrapper">
+        <div class="corner-br"></div>
+        <div class="corner-bl"></div>
+
+        <!-- actual img tag for MJPEG stream -->
+        <img id="videoFeed" src="/video_feed" alt="Live Feed"
+          onerror="this.style.display='none'; document.getElementById('noSignal').style.display='flex';"
+          onload="document.getElementById('noSignal').style.display='none'; this.style.display='block';"
+          style="display:none;" />
+
+        <!-- bounding-box overlay -->
+        <canvas id="overlayCanvas"></canvas>
+
+        <!-- no-signal placeholder -->
+        <div class="no-signal" id="noSignal">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#5a7a94" stroke-width="1.2">
+            <rect x="2" y="6" width="20" height="14" rx="2"/>
+            <path d="M8 6V4h8v2"/>
+            <path d="M12 11l-3 4h6l-3-4z" fill="#5a7a94"/>
+            <line x1="2" y1="2" x2="22" y2="22" stroke="#ff2244" stroke-width="1.5"/>
+          </svg>
+          <p>NO SIGNAL — WAITING FOR STREAM</p>
+        </div>
+      </div>
+
+      <div class="video-footer">
+        <div class="vf-stat">Resolution: <span id="resLabel">1280×720</span></div>
+        <div class="vf-stat">Protocol: <span>WebSocket / MJPEG</span></div>
+        <div class="vf-stat">Uptime: <span id="uptimeLabel">00:00:00</span></div>
+        <div class="vf-stat">Detections: <span id="detCount">0</span></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+
+      <!-- scrollable upper area (node info + status) -->
+      <div class="panel-scroll">
+
+      <!-- NODE INFO -->
+      <div class="panel-section">
+        <div class="section-label">Node Information</div>
+        <div class="info-grid">
+          <div class="info-cell">
+            <div class="info-cell-label">Node ID</div>
+            <div class="info-cell-value cyan" id="nodeId">NODE-A1</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">Location</div>
+            <div class="info-cell-value" id="locationVal">Main Entrance</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">IP Address</div>
+            <div class="info-cell-value" id="ipVal">192.168.1.105</div>
+          </div>
+          <div class="info-cell">
+            <div class="info-cell-label">Model</div>
+            <div class="info-cell-value" id="modelVal">YOLOv8n</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CURRENT STATUS -->
+      <div class="panel-section">
+        <div class="section-label">Threat Status</div>
+        <div class="status-card safe" id="statusCard">
+          <div class="status-header">
+            <div class="status-icon safe" id="statusIcon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <polyline points="9 12 11 14 15 10"/>
+              </svg>
+            </div>
+            <div class="status-text">
+              <div class="status-badge safe" id="statusBadge">SAFE</div>
+              <div class="status-sub" id="statusSub">No threats detected</div>
+            </div>
+          </div>
+          <div class="status-details">
+            <div class="det-row">
+              <div class="det-label">Person</div>
+              <div class="det-value highlight" id="detPersonName">—</div>
+            </div>
+            <div class="det-row">
+              <div class="det-label">Weapon</div>
+              <div class="det-value" id="detWeaponName">None</div>
+            </div>
+          </div>
+          <div class="conf-bar-wrap">
+            <div class="conf-bar-label">
+              <span>Detection Confidence</span>
+              <span id="confPct">0%</span>
+            </div>
+            <div class="conf-bar-track">
+              <div class="conf-bar-fill" id="confBar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /panel-section: status -->
+
+      </div><!-- /panel-scroll -->
+
+      <!-- ALERTS -->
+      <div class="alerts-section">
+        <div class="alerts-header">
+          Live Alerts
+          <span id="alertCount">0</span>
+        </div>
+        <div id="alertsList">
+          <!-- alerts injected here -->
+        </div>
+      </div>
+
+      <!-- BOTTOM STATUS BAR -->
+      <div class="statusbar">
+        <div class="sb-item green">Backend: <span>ONLINE</span></div>
+        <div class="sb-item">Faces DB: <span id="facesDb">12 entries</span></div>
+        <div class="sb-item">YOLO: <span>v8n</span></div>
+        <div class="sb-item">Latency: <span id="latencyVal">—</span></div>
+      </div>
+
+    </div><!-- /right-panel -->
+  </main>
+</div><!-- /app -->
+
+<!-- ── ADMIN PANEL OVERLAY ── -->
+<div class="admin-overlay" id="adminOverlay" onclick="closeAdminPanel(event)">
+  <div class="admin-panel" id="adminPanel">
+
+    <!-- header -->
+    <div class="ap-header">
+      <div class="ap-title">Admin <span>Control</span> Panel</div>
+      <button class="ap-close" onclick="toggleAdminPanel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- tabs -->
+    <div class="ap-tabs">
+      <div class="ap-tab active" onclick="switchTab('upload')">📷 Upload Photo</div>
+      <div class="ap-tab" onclick="switchTab('persons')">👤 Authorized</div>
+      <div class="ap-tab" onclick="switchTab('users')">🔑 Users</div>
+    </div>
+
+    <!-- body -->
+    <div class="ap-body">
+
+      <!-- ── TAB 1: Upload Authorized Photo ── -->
+      <div class="ap-pane active" id="pane-upload">
+        <div class="ap-section-title">Upload Authorized Person</div>
+        <div id="uploadMsg" class="ap-msg"></div>
+
+        <!-- preview -->
+        <img id="uploadPreview" class="upload-preview" alt="Preview" />
+
+        <!-- drop zone -->
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('photoInput').click()">
+          <div class="uz-icon">🖼️</div>
+          <p>Drag & drop a photo here<br>or <span>click to browse</span><br><br>JPG / PNG · Max 5 MB</p>
+        </div>
+        <input type="file" id="photoInput" accept=".jpg,.jpeg,.png" style="display:none" onchange="previewPhoto(this)" />
+
+        <label class="ap-label">Person Name</label>
+        <input type="text" id="uploadPersonName" class="ap-input" placeholder="e.g. John Doe" />
+
+        <button class="ap-btn" onclick="uploadPhoto()">Upload &amp; Register Face</button>
+      </div>
+
+      <!-- ── TAB 2: Authorized Persons List ── -->
+      <div class="ap-pane" id="pane-persons">
+        <div class="ap-section-title">Registered Authorized Persons</div>
+        <div id="personsMsg" class="ap-msg"></div>
+        <div class="person-grid" id="personGrid">Loading...</div>
+      </div>
+
+      <!-- ── TAB 3: User Management ── -->
+      <div class="ap-pane" id="pane-users">
+        <div class="ap-section-title">System Users</div>
+        <div id="usersMsg" class="ap-msg"></div>
+        <table class="user-table" id="userTable">
+          <thead>
+            <tr>
+              <th>Username</th><th>Role</th><th>Node</th><th>Location</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="userTbody">Loading...</tbody>
+        </table>
+
+        <div style="margin-top:22px">
+          <div class="ap-section-title">Create New User</div>
+          <div id="createUserMsg" class="ap-msg"></div>
+          <div class="create-user-grid">
+            <div>
+              <label class="ap-label">Username</label>
+              <input type="text" id="newUsername" class="ap-input" placeholder="username" />
+            </div>
+            <div>
+              <label class="ap-label">Password</label>
+              <input type="password" id="newPassword" class="ap-input" placeholder="password" />
+            </div>
+            <div>
+              <label class="ap-label">Role</label>
+              <select id="newRole" class="ap-input" style="cursor:pointer">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div>
+              <label class="ap-label">Node ID</label>
+              <input type="text" id="newNodeId" class="ap-input" placeholder="NODE-B1" />
+            </div>
+            <div class="full">
+              <label class="ap-label">Location</label>
+              <input type="text" id="newLocation" class="ap-input" placeholder="e.g. Back Gate" />
+            </div>
+            <div class="full">
+              <button class="ap-btn" onclick="createUser()">Create User</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /ap-body -->
+  </div><!-- /admin-panel -->
+</div><!-- /admin-overlay -->
+
+<script>
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toTimeString().split(' ')[0];
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── UPTIME ────────────────────────────────────────────────────────────────────
+let startTime = Date.now();
+function updateUptime() {
+  const s = Math.floor((Date.now() - startTime) / 1000);
+  const h = String(Math.floor(s / 3600)).padStart(2,'0');
+  const m = String(Math.floor((s % 3600) / 60)).padStart(2,'0');
+  const sc= String(s % 60).padStart(2,'0');
+  document.getElementById('uptimeLabel').textContent = `${h}:${m}:${sc}`;
+}
+setInterval(updateUptime, 1000);
+
+// ── FPS COUNTER ───────────────────────────────────────────────────────────────
+let frameCount = 0, lastFpsTime = Date.now(), currentFps = 0;
+function tickFps() {
+  frameCount++;
+  const now = Date.now();
+  if (now - lastFpsTime >= 1000) {
+    currentFps = frameCount;
+    frameCount = 0;
+    lastFpsTime = now;
+    document.getElementById('fpsVal').textContent = currentFps;
+  }
+}
+// simulate FPS ticking from img load events
+const imgEl = document.getElementById('videoFeed');
+imgEl.addEventListener('load', () => {
+  tickFps();
+  // reload MJPEG frame (if server returns single JPEG at /video_feed)
+  // For true MJPEG this is not needed; uncomment for snapshot polling:
+  // imgEl.src = '/video_feed?' + Date.now();
+});
+
+// ── BOUNDING BOX CANVAS ───────────────────────────────────────────────────────
+const canvas = document.getElementById('overlayCanvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const wrapper = canvas.parentElement;
+  canvas.width  = wrapper.clientWidth;
+  canvas.height = wrapper.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function drawBoxes(boxes) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  boxes.forEach(b => {
+    const color = b.type === 'weapon' ? '#ff2244'
+                : b.type === 'face'   ? '#00ff88'
+                :                       '#00d4ff';
+    const x = b.x * canvas.width;
+    const y = b.y * canvas.height;
+    const w = b.w * canvas.width;
+    const h = b.h * canvas.height;
+
+    // main rect
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.strokeRect(x, y, w, h);
+    ctx.shadowBlur = 0;
+
+    // corner accents
+    const cs = 12;
+    ctx.lineWidth = 3;
+    [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy],i) => {
+      ctx.beginPath();
+      ctx.moveTo(cx + (i%2===1?-cs:cs)*0, cy);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx, cy + (i>1?-cs:cs)*0);
+      ctx.stroke();
+    });
+
+    // label
+    const label = b.label || b.type;
+    const conf  = b.confidence ? ` ${Math.round(b.confidence*100)}%` : '';
+    ctx.fillStyle = color;
+    ctx.globalAlpha = .85;
+    const textW = ctx.measureText(label+conf).width + 10;
+    ctx.fillRect(x-1, y-18, textW, 18);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000';
+    ctx.font = '11px "Share Tech Mono", monospace';
+    ctx.fillText(label + conf, x+4, y-5);
+  });
+}
+
+// ── STATUS SYSTEM ─────────────────────────────────────────────────────────────
+const STATUSES = {
+  safe:   { cls:'safe',   badge:'SAFE',                icon:'shield_ok',  sub:'No threats detected',     conf_color:'var(--green)' },
+  unauth: { cls:'unauth', badge:'UNAUTHORIZED PERSON', icon:'shield_warn',sub:'Unauthorized face detected', conf_color:'var(--orange)' },
+  weapon: { cls:'weapon', badge:'WEAPON DETECTED',     icon:'weapon',     sub:'Dangerous object in frame', conf_color:'var(--yellow)' },
+  threat: { cls:'threat', badge:'HIGH THREAT',         icon:'alert',      sub:'IMMEDIATE RESPONSE NEEDED',conf_color:'var(--red)' },
+};
+
+const ICONS = {
+  shield_ok: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
+  shield_warn:`<svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="16" r=".5" fill="var(--orange)"/></svg>`,
+  weapon:    `<svg viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M8 12l3-3 5 5-3 3-5-5z"/></svg>`,
+  alert:     `<svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="var(--red)"/></svg>`,
+};
+
+let currentStatus = 'safe';
+let totalDetections = 0;
+let alertsData = [];
+
+function setStatus(key, data) {
+  if (!STATUSES[key]) key = 'safe';
+  const s = STATUSES[key];
+  const card   = document.getElementById('statusCard');
+  const icon   = document.getElementById('statusIcon');
+  const badge  = document.getElementById('statusBadge');
+  const sub    = document.getElementById('statusSub');
+  const person = document.getElementById('detPersonName');
+  const weapon = document.getElementById('detWeaponName');
+  const confBar= document.getElementById('confBar');
+  const confPct= document.getElementById('confPct');
+
+  // remove old classes
+  card.className  = 'status-card ' + s.cls;
+  icon.className  = 'status-icon ' + s.cls;
+  badge.className = 'status-badge ' + s.cls;
+
+  icon.innerHTML = ICONS[s.icon];
+  badge.textContent = s.badge;
+  sub.textContent   = s.sub;
+
+  person.textContent = data.person || '—';
+  weapon.textContent = data.weapon || 'None';
+
+  const conf = data.confidence || 0;
+  confBar.style.width      = conf + '%';
+  confBar.style.background = s.conf_color;
+  confPct.textContent      = conf.toFixed(1) + '%';
+
+  currentStatus = key;
+}
+
+// ── ALERTS ────────────────────────────────────────────────────────────────────
+const ALERT_ICONS = {
+  info:     `<svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  warning:  `<svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>`,
+  critical: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="var(--red)"/></svg>`,
+  success:  `<svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+};
+
+function pushAlert(msg, type='info') {
+  const now = new Date();
+  const time = now.toTimeString().split(' ')[0];
+  alertsData.unshift({ msg, type, time });
+  if (alertsData.length > 50) alertsData.pop();
+  renderAlerts();
+  document.getElementById('alertCount').textContent = alertsData.length;
+}
+
+function renderAlerts() {
+  const list = document.getElementById('alertsList');
+  list.innerHTML = alertsData.slice(0, 30).map(a => `
+    <div class="alert-item ${a.type}">
+      <div class="alert-icon">${ALERT_ICONS[a.type] || ALERT_ICONS.info}</div>
+      <div class="alert-body">
+        <div class="alert-msg">${a.msg}</div>
+        <div class="alert-time">${a.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── POLL /data ENDPOINT ───────────────────────────────────────────────────────
+let lastStatusKey = 'safe';
+let pollErrors = 0;
+
+async function pollData() {
+  const t0 = Date.now();
+  try {
+    const resp = await fetch('/data');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const d = await resp.json();
+
+    pollErrors = 0;
+    document.getElementById('connDot').classList.remove('offline');
+    document.getElementById('connLabel').textContent = 'CONNECTED';
+    document.querySelector('.sb-item.green span').textContent = 'ONLINE';
+
+    const latency = Date.now() - t0;
+    document.getElementById('latencyVal').textContent = latency + 'ms';
+
+    // Update node info
+    if (d.node_id)   { document.getElementById('nodeId').textContent = d.node_id; document.getElementById('camId').textContent = d.node_id; }
+    if (d.location)  { document.getElementById('locationVal').textContent = d.location; document.getElementById('locationLabel').textContent = d.location.toUpperCase(); }
+    if (d.ip)        document.getElementById('ipVal').textContent = d.ip;
+    if (d.faces_db)  document.getElementById('facesDb').textContent = d.faces_db + ' entries';
+
+    // Determine status key
+    let statusKey = 'safe';
+    if (d.status === 'HIGH_THREAT' || d.high_threat)        statusKey = 'threat';
+    else if (d.status === 'WEAPON_DETECTED' || d.weapon)    statusKey = 'weapon';
+    else if (d.status === 'UNAUTHORIZED' || d.unauthorized) statusKey = 'unauth';
+
+    setStatus(statusKey, {
+      person:     d.person_name || d.person || null,
+      weapon:     d.weapon_name || d.weapon || null,
+      confidence: d.confidence  || 0,
+    });
+
+    // Alerts on status change
+    if (statusKey !== lastStatusKey) {
+      if (statusKey === 'threat')  pushAlert('⚠ HIGH THREAT — ' + (d.weapon_name || 'Unknown weapon') + ' detected', 'critical');
+      else if (statusKey === 'weapon')  pushAlert('Weapon detected: ' + (d.weapon_name || 'Unknown'), 'warning');
+      else if (statusKey === 'unauth')  pushAlert('Unauthorized person detected', 'warning');
+      else if (statusKey === 'safe')    pushAlert('Area cleared — status SAFE', 'success');
+      lastStatusKey = statusKey;
+    }
+
+    // Bounding boxes
+    if (d.boxes && Array.isArray(d.boxes)) {
+      drawBoxes(d.boxes);
+      totalDetections += d.boxes.length;
+      document.getElementById('detCount').textContent = totalDetections;
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // FPS from server if provided
+    if (d.fps) document.getElementById('fpsVal').textContent = d.fps;
+
+  } catch (e) {
+    pollErrors++;
+    if (pollErrors > 3) {
+      document.getElementById('connDot').classList.add('offline');
+      document.getElementById('connLabel').textContent = 'DISCONNECTED';
+      document.querySelector('.sb-item.green span').textContent = 'OFFLINE';
+      document.getElementById('latencyVal').textContent = '—';
+      if (pollErrors === 4) pushAlert('Backend connection lost', 'critical');
+    }
+  }
+}
+
+setInterval(pollData, 500);
+
+// ── ADMIN PANEL ───────────────────────────────────────────────────────────────
+function toggleAdminPanel() {
+  document.getElementById('adminOverlay').classList.toggle('open');
+  // Refresh data for whichever tab is visible
+  const activeTab = document.querySelector('.ap-tab.active');
+  if (activeTab) {
+    const tabId = activeTab.getAttribute('onclick').match(/'(\w+)'/)[1];
+    if (tabId === 'persons') loadPersons();
+    if (tabId === 'users')   loadUsers();
+  }
+}
+
+function closeAdminPanel(e) {
+  // Close only if clicking the backdrop (not the panel itself)
+  if (e.target === document.getElementById('adminOverlay')) toggleAdminPanel();
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.ap-tab').forEach((t,i) => {
+    const tabs = ['upload','persons','users'];
+    t.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.ap-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('pane-' + name).classList.add('active');
+  if (name === 'persons') loadPersons();
+  if (name === 'users')   loadUsers();
+}
+
+// ── UPLOAD PHOTO ─────────────────────────────────────────────────────────────
+function previewPhoto(input) {
+  const prev = document.getElementById('uploadPreview');
+  const zone = document.getElementById('dropZone');
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      prev.src = e.target.result;
+      prev.style.display = 'block';
+      zone.style.display = 'none';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+// Drag & drop
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const dt = e.dataTransfer;
+  if (dt.files.length) {
+    document.getElementById('photoInput').files = dt.files;
+    previewPhoto(document.getElementById('photoInput'));
+  }
+});
+
+function showMsg(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'ap-msg ' + type;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+async function uploadPhoto() {
+  const nameVal = document.getElementById('uploadPersonName').value.trim();
+  const fileInput = document.getElementById('photoInput');
+  if (!nameVal)  { showMsg('uploadMsg', 'Please enter a person name.', 'err'); return; }
+  if (!fileInput.files.length) { showMsg('uploadMsg', 'Please select a photo.', 'err'); return; }
+
+  // Show loading state on the button
+  const btn = document.querySelector('#pane-upload .ap-btn');
+  const origText = btn.textContent;
+  btn.textContent = 'Uploading...';
+  btn.disabled = true;
+
+  const form = new FormData();
+  form.append('name', nameVal);
+  form.append('photo', fileInput.files[0]);
+
+  try {
+    const resp = await fetch('/upload_authorized', { method: 'POST', body: form });
+    const d = await resp.json();
+    if (d.success) {
+      const msg = `✓ Saved as "${d.saved_as}" · ${d.total} face(s) registered`;
+      showMsg('uploadMsg', msg, 'ok');
+      document.getElementById('uploadPersonName').value = '';
+      document.getElementById('photoInput').value = '';
+      document.getElementById('uploadPreview').style.display = 'none';
+      document.getElementById('dropZone').style.display = 'block';
+      // Auto-switch to Authorized tab so user sees the result
+      setTimeout(() => switchTab('persons'), 1200);
+    } else {
+      showMsg('uploadMsg', '✗ ' + d.error, 'err');
+    }
+  } catch (err) {
+    showMsg('uploadMsg', '✗ Network error: ' + err.message, 'err');
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
+}
+
+// ── PERSONS LIST ─────────────────────────────────────────────────────────────
+async function loadPersons() {
+  const grid = document.getElementById('personGrid');
+  grid.innerHTML = 'Loading...';
+  try {
+    const d = await (await fetch('/admin/authorized_list')).json();
+    if (!d.persons.length) { grid.innerHTML = '<p style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim)">No authorized persons yet.</p>'; return; }
+    grid.innerHTML = d.persons.map(p => `
+      <div class="person-card">
+        <div style="height:100px;background:var(--bg-card2);display:flex;align-items:center;justify-content:center">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3a5a72" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="pc-name">${p.name}</div>
+        <button class="pc-del" onclick="deletePerson('${p.filename}','${p.name}')" title="Remove">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    `).join('');
+  } catch { grid.innerHTML = '<p style="color:var(--red);font-family:var(--font-mono);font-size:11px">Failed to load.</p>'; }
+}
+
+async function deletePerson(filename, name) {
+  if (!confirm(`Remove ${name} from authorized list?`)) return;
+  try {
+    const resp = await fetch('/admin/delete_authorized', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename })
+    });
+    const d = await resp.json();
+    if (d.success) { showMsg('personsMsg', `✓ ${name} removed.`, 'ok'); loadPersons(); }
+    else showMsg('personsMsg', '✗ ' + d.error, 'err');
+  } catch { showMsg('personsMsg', '✗ Network error.', 'err'); }
+}
+
+// ── USER TABLE ────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  const tbody = document.getElementById('userTbody');
+  tbody.innerHTML = '<tr><td colspan="5" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim)">Loading...</td></tr>';
+  try {
+    const d = await (await fetch('/admin/users')).json();
+    tbody.innerHTML = d.users.map(u => `
+      <tr>
+        <td>${u.username}</td>
+        <td><span class="role-badge ${u.role}">${u.role}</span></td>
+        <td>${u.node_id}</td>
+        <td>${u.location}</td>
+        <td>${u.role !== 'admin' ? `<button class="del-user-btn" onclick="deleteUser('${u.username}')">✕</button>` : ''}</td>
+      </tr>
+    `).join('');
+  } catch { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--red)">Failed to load.</td></tr>'; }
+}
+
+async function createUser() {
+  const un = document.getElementById('newUsername').value.trim();
+  const pw = document.getElementById('newPassword').value.trim();
+  const role = document.getElementById('newRole').value;
+  const nid  = document.getElementById('newNodeId').value.trim() || 'NODE-B1';
+  const loc  = document.getElementById('newLocation').value.trim() || 'Zone B';
+  if (!un || !pw) { showMsg('createUserMsg','Username and password required.','err'); return; }
+  try {
+    const resp = await fetch('/admin/create_user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username:un, password:pw, role, node_id:nid, location:loc })
+    });
+    const d = await resp.json();
+    if (d.success) {
+      showMsg('createUserMsg', `✓ User "${un}" created.`, 'ok');
+      ['newUsername','newPassword','newNodeId','newLocation'].forEach(id => document.getElementById(id).value = '');
+      loadUsers();
+    } else showMsg('createUserMsg', '✗ ' + d.error, 'err');
+  } catch { showMsg('createUserMsg','✗ Network error.','err'); }
+}
+
+async function deleteUser(username) {
+  if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+  try {
+    const resp = await fetch('/admin/delete_user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    });
+    const d = await resp.json();
+    if (d.success) { showMsg('usersMsg', `✓ User "${username}" deleted.`, 'ok'); loadUsers(); }
+    else showMsg('usersMsg', '✗ ' + d.error, 'err');
+  } catch { showMsg('usersMsg','✗ Network error.','err'); }
+}
+</script>
+</body>
+</html>
