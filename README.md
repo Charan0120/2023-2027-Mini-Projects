@@ -1,7 +1,7 @@
 **Team Members**
-#B.Charan 2451-23-749-001
-#G.Siddartha 2451-23-749-303
-#N.Vikas 2451-23-749-031
+# B.Charan 2451-23-749-001
+# G.Siddartha 2451-23-749-303
+# N.Vikas 2451-23-749-031
 
 # AI-Based Smart Surveillance System 
 
