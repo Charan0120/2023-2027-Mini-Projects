@@ -3,12 +3,12 @@
 #include <WebSocketsClient.h>
 
 // ================= WIFI =================
-const char* ssid = "Teja4g";
-const char* password = "Charan@2131";
+const char* ssid = "Vikass";
+const char* password = "vikas22543";
 
 // ================= SERVER =================
 // PC IP address running Python server
-const char* server_ip = "192.168.29.184";
+const char* server_ip = "172.16.233.26";
 const uint16_t server_port = 8765;
 
 // ================= CAMERA PINS (AI Thinker) =================

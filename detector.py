@@ -2,9 +2,26 @@ import cv2
 import face_recognition
 import os
 import numpy as np
-from ultralytics import YOLO
+import torch
+import torch.serialization
 from config import MODEL_PATH, CONF_THRESHOLD
 import globals
+
+# ── PyTorch 2.6 compatibility fix ─────────────────────────────────────────────
+# PyTorch 2.6 changed torch.load default from weights_only=False to True.
+# The exact set of classes that need allowlisting varies between ultralytics /
+# torch versions, so we monkey-patch torch.load to force weights_only=False
+# only while the YOLO model is loading, then restore the original immediately.
+_original_torch_load = torch.load
+
+def _patched_torch_load(f, *args, **kwargs):
+    kwargs.setdefault('weights_only', False)
+    return _original_torch_load(f, *args, **kwargs)
+
+torch.load = _patched_torch_load
+# ──────────────────────────────────────────────────────────────────────────────
+
+from ultralytics import YOLO
 
 # Absolute path — same result whether imported from app.py or run directly
 BASE_DIR          = os.path.dirname(os.path.abspath(__file__))
@@ -14,6 +31,11 @@ print(f"[Detector] AUTHORIZED_FOLDER = {AUTHORIZED_FOLDER}")
 
 model = YOLO(MODEL_PATH)
 
+# Restore torch.load to its original behaviour after YOLO model is loaded
+torch.load = _original_torch_load
+print("[Detector] YOLO model loaded successfully.")
+
+# ── Face encoding state ────────────────────────────────────────────────────────
 known_encodings = []
 known_names     = []
 
@@ -50,11 +72,11 @@ def reload_encodings(folder=None):
             if enc:
                 new_encodings.append(enc[0])
                 new_names.append(os.path.splitext(fname)[0].replace("_", " "))
-                print(f"[Detector]  ✓ Encoded: {fname}")
+                print(f"[Detector]  + Encoded: {fname}")
             else:
-                print(f"[Detector]  ⚠ No face found in: {fname}")
+                print(f"[Detector]  ! No face found in: {fname}")
         except Exception as e:
-            print(f"[Detector]  ✗ Error encoding {fname}: {e}")
+            print(f"[Detector]  x Error encoding {fname}: {e}")
 
     known_encodings = new_encodings
     known_names     = new_names
@@ -72,7 +94,7 @@ def process_frame(frame, frame_count):
     globals.current_boxes = []
 
     # ── FACE RECOGNITION ──────────────────────────────────────────────────────
-    unauthorized         = False
+    unauthorized           = False
     globals.current_person = None
 
     small = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
@@ -111,7 +133,7 @@ def process_frame(frame, frame_count):
         })
 
     # ── YOLO WEAPON DETECTION ─────────────────────────────────────────────────
-    weapon_detected        = False
+    weapon_detected            = False
     globals.current_weapon     = None
     globals.current_confidence = 0
 
